@@ -1,4 +1,4 @@
-all: map-populator da-example ebpf-network-emulation ebpf-delay experiment
+all: map-populator da-example ebpf-network-emulation ebpf-delay experiment vxlan-example
 
 da-example:
 	go generate ./cmd/da-example
@@ -17,3 +17,7 @@ ebpf-delay:
 
 experiment:
 	go build -o bin/experiment ./cmd/experiment
+
+vxlan-example:
+	go generate ./cmd/vxlan-example
+	go build -o bin/vxlan-example ./cmd/vxlan-example
