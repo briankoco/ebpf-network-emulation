@@ -38,7 +38,7 @@ func main() {
 	defer objs.Close()
 
 	//progFd := objs.tcPrograms.VxlanGetTunnelSrc.FD()
-	progFd := objs.tcPrograms.TcMain.FD()
+	progFd := objs.tcPrograms.TcMainEgress.FD()
 	iface, err := utils.GetIface(*iface_name)
 	if err != nil {
 		log.Fatalf("cannot find %s: %v", iface_name, err)
@@ -54,9 +54,16 @@ func main() {
 		log.Fatalf("cannot create fq qdisc: %v", err)
 	}
 
-	// Attach bpf program
+	// Attach bpf program on egress
 	if _, err := utils.CreateTCBpfFilter(iface, progFd, netlink.HANDLE_MIN_EGRESS, "ebpf_vxlan"); err != nil {
 		log.Fatalf("cannot create bpf filter: %v", err)
 	}
+
+	// Attach bpf program on ingress
+	progFd = objs.tcPrograms.TcMainIngress.FD()
+	if _, err := utils.CreateTCBpfFilter(iface, progFd, netlink.HANDLE_MIN_INGRESS, "ebpf_vxlan"); err != nil {
+		log.Fatalf("cannot create bpf filter: %v", err)
+	}
+
 
 }

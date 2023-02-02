@@ -50,68 +50,81 @@ static inline int set_delay(struct __sk_buff *skb, uint32_t *delay_ms) {
     return TC_ACT_OK;
 }
 
-SEC("tc")
-int tc_main(struct __sk_buff *skb)
+static inline int tc_main(struct __sk_buff *skb)
 {
-	void * data, * data_end;
+    void * data, * data_end;
     struct hdr_cursor nh;
     struct ethhdr *eth;
     struct iphdr *iphdr;
-	struct udphdr *uhdr;
-	struct vxlanhdr *vhdr;
-	int eth_type, ip_type, udp_port, vni;
+    struct udphdr *uhdr;
+    struct vxlanhdr *vhdr;
+    int eth_type, ip_type, udp_port, vni;
 
     // data is a void* to the beginning of the packet
-	data = (void *)(unsigned long long)skb->data;
+    data = (void *)(unsigned long long)skb->data;
 
     // data_end is a void* to the end of the packet
-	data_end = (void *)(unsigned long long)skb->data_end;
+    data_end = (void *)(unsigned long long)skb->data_end;
 
     // nh keeps track of the beginning of the next header to parse
     nh.pos = data;
 
     // parse ethernet
     eth_type = parse_ethhdr(&nh, data_end, &eth);
-	if (eth_type != bpf_htons(ETH_P_IP)) {
-		debug("not an IP packet");
-		return TC_ACT_OK;
-	}
+    if (eth_type != bpf_htons(ETH_P_IP)) {
+        debug("not an IP packet");
+        return TC_ACT_OK;
+    }
 
-	// parse IPv4
-	ip_type = parse_iphdr(&nh, data_end, &iphdr);
-	if (ip_type != IPPROTO_UDP) {
-		debug("not a UDP packet");
-		return TC_ACT_OK;
-	}
+    // parse IPv4
+    ip_type = parse_iphdr(&nh, data_end, &iphdr);
+    if (ip_type != IPPROTO_UDP) {
+        debug("not a UDP packet");
+        return TC_ACT_OK;
+    }
 
-	// parse UDP header
-	if (parse_udphdr(&nh, data_end, &uhdr) < 0) {
-		error("failed to parse UDP header");
-		return TC_ACT_OK;
-	}
+    // parse UDP header
+    if (parse_udphdr(&nh, data_end, &uhdr) < 0) {
+        error("failed to parse UDP header");
+        return TC_ACT_OK;
+    }
 
-	// check for VXLAN port 4789
-	udp_port = bpf_ntohs(uhdr->dest);
-	if (udp_port != 4789) {
-		debug("not a VXLAN packet");
-		return TC_ACT_OK;
-	}
+    // check for VXLAN port 4789
+    udp_port = bpf_ntohs(uhdr->dest);
+    if (udp_port != 4789) {
+        debug("not a VXLAN packet");
+        return TC_ACT_OK;
+    }
 
-	// parse VXLAN header
-	if (parse_vxlanhdr(&nh, data_end, &vhdr) < 0) {
-		error("failed to parse VXLAN packet");
-		return TC_ACT_OK;
-	}
+    // parse VXLAN header
+    if (parse_vxlanhdr(&nh, data_end, &vhdr) < 0) {
+        error("failed to parse VXLAN packet");
+        return TC_ACT_OK;
+    }
 
-	vni = vxlanhdr_vni(vhdr);
-	debug("found vxlan pkt with vni:%d", vni);
+    vni = vxlanhdr_vni(vhdr);
+    debug("found vxlan pkt with vni:%d", vni);
 
-	if (vni == 102 || vni == 101) {
-		uint32_t delayms=100;
-		return set_delay(skb, &delayms);
-	} else {
-		return TC_ACT_OK;
-	}
+    if (vni == 102 || vni == 101) {
+        uint32_t delayms=100;
+        return set_delay(skb, &delayms);
+    } else {
+        return TC_ACT_OK;
+    }
+}
+
+SEC("tc")
+int tc_main_ingress(struct __sk_buff *skb)
+{
+    debug("tc_main_ingress");
+    return tc_main(skb);
+}
+
+SEC("tc")
+int tc_main_egress(struct __sk_buff *skb)
+{
+    debug("tc_main_egress");
+    return tc_main(skb);
 }
 
 #if 0
@@ -140,7 +153,7 @@ int tc_main(struct __sk_buff *skb)
     int eth_type;
     int ip_type;
 
-	bpf_printk("hello from this program\n");
+    bpf_printk("hello from this program\n");
 
     // start parsing at beginning of data
     nh.pos = data;
